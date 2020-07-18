@@ -12,9 +12,6 @@ def get_atom_head(f):
         print("using extended atom size")
         data = f.read(8)
         atom_size = int.from_bytes(data,"big") # convert 64 bits to integer
-        atom_size -= 16
-    else:
-        atom_size -= 8
     
     # todo: handle special size cases, 0 and 1
     print("get_atom_head() data = ", data,
@@ -96,13 +93,23 @@ def process_free(f, body_end):
 
 def process_next_atom(f, end_pos):
     "read the next atom from file f and process it"
-    
+
+    pos = f.tell()
+
+    if (pos + 8 > end_pos):
+        # not enough remaining bytes for an atom header
+        return None
+
     atom_size, atom_type = get_atom_head(f)
 
-    atom_body = None
-    pos = f.tell()
     body_end = pos + atom_size
+
+    if (body_end > end_pos):
+        # not enough remaining bytes for the atom body
+        return None
     
+    atom_body = None
+
     if (atom_type == b'wide'):
         atom_body = process_wide(f, body_end)
     elif (atom_type == b'skip'):

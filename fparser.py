@@ -1,18 +1,27 @@
 import sys
+import os
 
 def get_atom_head(f):
     "Get the next atom from the file"
     data = f.read(4)                    # read the first bytes 0..3
-    atom_size = int.from_bytes(data,"big") # convert to integer
+    atom_size = int.from_bytes(data,"big") # convert 32 bits to integer
     atom_type = f.read(4)                   # read bytes 4..7
 
-    atom_size -= 8
+    if (1 == atom_size):
+        # using extended size field
+        print("using extended atom size")
+        data = f.read(8)
+        atom_size = int.from_bytes(data,"big") # convert 64 bits to integer
+        atom_size -= 16
+    else:
+        atom_size -= 8
     
     # todo: handle special size cases, 0 and 1
     print("get_atom_head() data = ", data,
           "atom_size = ", atom_size,
           "atom_type = ", atom_type)
 
+    print ("atom_size =", atom_size)
     assert (atom_size >= 0)
 
     return atom_size, atom_type
@@ -61,7 +70,7 @@ def process_moov(f, atom_size):
     return atom_size
 
 
-def process_next_atom(f):
+def process_next_atom(f, length):
     "read the next atom from file f and process it"
     
     atom_size, atom_type = get_atom_head(f)
@@ -83,23 +92,21 @@ def process_next_atom(f):
         atom_size = process_moov(f, atom_size)
     else:
         print('Unrecognised atom type', atom_type)
+    
 
+file_list = sys.argv        # get the argument list
+prog_name = file_list.pop(0) # pop the script name off the head of the list
 
-fileList = sys.argv        # get the argument list
-progName = fileList.pop(0) # pop the script name off the head of the list
+print("prog_name = ", prog_name)
+print("file_list = ", file_list)
 
-print("progname = ", progName)
-print("fileList = ", fileList)
-
-for pathname in fileList:
+for pathname in file_list:
+    file_length = os.stat(pathname).st_size
     print("pathname = ", pathname)
     with open(pathname, 'rb') as f:
-        # Read the header
-        process_next_atom(f)
-        process_next_atom(f)
-        process_next_atom(f)
-        process_next_atom(f)
-        print("file offset = ", f.tell())
+        while (f.tell() < file_length):
+            process_next_atom(f, file_length)
+            print("file offset = ", f.tell())
         
 
 

@@ -76,6 +76,24 @@ def process_moov(f, body_end):
     return []
 
 
+def process_wide(f, body_end):
+    "process the body of a wide atom"
+    print("ignoring wide atom")
+    assert(body_end == f.tell())
+
+
+def process_skip(f, body_end):
+    "process the body of an skip atom"
+    print("skip atom, seeking to ", body_end)
+    f.seek(body_end, 0) # skip to the atom_size (wrt. file head)
+
+
+def process_free(f, body_end):
+    "process the body of a free atom"
+    print("free atom, seeking to ", body_end)
+    f.seek(body_end, 0) # skip to the atom_size (wrt. file head)
+
+
 def process_next_atom(f, end_pos):
     "read the next atom from file f and process it"
     
@@ -83,22 +101,20 @@ def process_next_atom(f, end_pos):
 
     atom_body = None
     pos = f.tell()
+    body_end = pos + atom_size
     
     if (atom_type == b'wide'):
-        print("ignoring wide atom, atom body size = ", atom_size)
-        assert(0 == atom_size)
+        atom_body = process_wide(f, body_end)
     elif (atom_type == b'skip'):
-        print("skip atom, seeking by ", atom_size)
-        f.seek(atom_size, 1) # skip to the atom_size (wrt. file head)
+        atom_body = process_wide(f, body_end)
     elif (atom_type == b'free'):
-        print("free atom, seeking by ", atom_size)
-        f.seek(atom_size, 1) # skip to the atom_size (wrt. file head)
+        atom_body = process_wide(f, body_end)
     elif (atom_type == b'ftyp'):
-        atom_body = process_ftyp(f, pos + atom_size)
+        atom_body = process_ftyp(f, body_end)
     elif (atom_type == b'mdat'):
-        atom_body = process_mdat(f, pos + atom_size)
+        atom_body = process_mdat(f, body_end)
     elif (atom_type == b'moov'):
-        atom_body = process_moov(f, pos + atom_size)
+        atom_body = process_moov(f, body_end)
     else:
         print('Unrecognised atom type', atom_type)
 

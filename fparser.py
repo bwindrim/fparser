@@ -5,15 +5,20 @@ def get_ftyp(f, body_end):
     "process the body of an ftyp atom"
     type_list = []
 
-    while (f.tell() < body_end):
+    # Loop reading 4-byte type fields
+    while ((body_end - f.tell()) >= 4):
         magic2 = f.read(4)                   # read bytes 8..11
         print ("magic2 = ", magic2)
         type_list.append(magic2)
 
-    print("seeking to", body_end)
-    f.seek(body_end, 0) # skip the rest of the atom body
-        
-    return type_list
+    assert(f.tell() == body_end)
+
+    # Unpack the first two fields in the list
+    major_brand = type_list.pop(0)
+    minor_version = type_list.pop(0)
+    print("major, minor = ", major_brand, minor_version)
+    
+    return [major_brand, minor_version, type_list]
 
 
 def get_mdat(f, body_end):
@@ -136,15 +141,15 @@ def is_valid_file(atom):
     major_brand = type_list[0]
     
     if (major_brand == b'isom'):
-        print('It is an ISO Base Media file (MPEG-4) v1')
+        print('ISO Base Media file (MPEG-4) v1')
     elif (major_brand == b'MSNV'):
-        print('It is a MPEG-4 video file')
+        print('MPEG-4 video file')
     elif (major_brand == b'mp42'):
-        print('It is an MPEG-4 video|QuickTime file')
+        print('MPEG-4 video|QuickTime file')
     elif (major_brand == b'qt  '):
-        print('It is a QuickTime movie file')
+        print('QuickTime movie file')
     elif (major_brand == b'M4V '):
-        print('It is an ISO Media, MPEG v4 system, or iTunes AVC-LC file')
+        print('ISO Media, MPEG v4 system, or iTunes AVC-LC file')
     else:
         print('Unknown ftyp', major_brand)
         return False

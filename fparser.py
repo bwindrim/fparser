@@ -7,7 +7,7 @@ def get_ftyp(f, body_end):
 
     # Loop reading 4-byte type fields
     while ((body_end - f.tell()) >= 4):
-        magic2 = f.read(4)                   # read bytes 8..11
+        magic2 = f.read(4)
         print ("magic2 = ", magic2)
         type_list.append(magic2)
 
@@ -31,19 +31,24 @@ def get_mdat(f, body_end):
     return [body_start, body_end]
 
 
-def get_moov(f, body_end):
-    "process the body of a moov atom"
-
-    print("moov atom, seeking to", body_end)
-    f.seek(body_end, 0) # skip the rest of the atom body
+def get_container_atom(f, body_end):
+    "process the body of a container atom"
+    atom_list = []
+    
+    # Loop over the nested atoms in this atom
+    while (f.tell() < body_end):
+        atom_list.append (get_next_atom(f, file_length))
+#        print("file offset = ", f.tell())
+    
+    assert(f.tell() == body_end)
         
-    return []
+    return atom_list
 
 
 def get_wide(f, body_end):
     "process the body of a wide atom"
     print("ignoring wide atom")
-    assert(body_end == f.tell())
+    assert(f.tell() == body_end)
 
     return None
 
@@ -79,7 +84,22 @@ type_mapping = {
     b'free':get_free,
     b'ftyp':get_ftyp,
     b'mdat':get_mdat,
-    b'moov':get_moov
+    b'moov':get_container_atom,
+    b'mdia':get_container_atom,
+    b'trak':get_container_atom,
+    b'clip':get_container_atom,
+    b'udta':get_container_atom,
+    b'ctab':get_container_atom,
+    b'tapt':get_container_atom,
+    b'matt':get_container_atom,
+    b'edts':get_container_atom,
+    b'tref':get_container_atom,
+    b'txas':get_container_atom,
+    b'load':get_container_atom,
+    b'imap':get_container_atom,
+#    b'':get_container_atom,
+    b'minf':get_container_atom,
+    b'rmra':get_container_atom
     }
 
 
@@ -97,7 +117,12 @@ def get_next_atom(f, end_pos):
     atom_size = int.from_bytes(data,"big") # convert 32 bits to integer
     atom_type = f.read(4)                   # read bytes 4..7
 
-    if (1 == atom_size):
+    # Check for special atom size cases, 0 and 1
+    if (0 == atom_size):
+        # atom extends to end of file
+        atom_size = end_pos - pos # or end of enclosing atom if not top-level
+        print("atom extends to end of file or parent, atom_size = ", atom_size)
+    elif (1 == atom_size):
         # using extended size field
         if (pos + 8 > end_pos):
             # not enough remaining bytes for a 64-bit atom size field
@@ -107,10 +132,7 @@ def get_next_atom(f, end_pos):
         data = f.read(8)
         atom_size = int.from_bytes(data,"big") # convert 64 bits to integer
     
-    # todo: handle special size cases, atom_size == 0
-    print("get_next_atom() data = ", data,
-          "atom_size = ", atom_size,
-          "atom_type = ", atom_type)
+    print("get_next_atom() size = ", atom_size, "type = ", atom_type)
 
     assert (atom_size >= 8)
 
@@ -177,7 +199,7 @@ for pathname in file_list:
             # Loop over the remaining atoms in the file
             while (f.tell() < file_length):
                 atom_list.append (get_next_atom(f, file_length))
-                print("file offset = ", f.tell())
+#                print("file offset = ", f.tell())
         else:
             print("Invalid QuickTime file")
             

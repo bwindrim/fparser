@@ -91,16 +91,45 @@ def process_free(f, body_end):
     f.seek(body_end, 0) # skip to the atom_size (wrt. file head)
 
 
+type_mapping = {
+    b'wide':process_wide,
+    b'skip':process_skip,
+    b'free':process_free,
+    b'ftyp':process_ftyp,
+    b'mdat':process_mdat,
+    b'moov':process_moov
+    }
+
 def process_next_atom(f, end_pos):
     "read the next atom from file f and process it"
 
-    pos = f.tell()
+    pos = f.tell() # pos is the very start of the atom
 
+    # Check if enough remaining bytes for an atom header
     if (pos + 8 > end_pos):
-        # not enough remaining bytes for an atom header
         return None
 
-    atom_size, atom_type = get_atom_head(f)
+    # Read the atom header
+    data = f.read(4)                    # read the first 4 bytes of the atom
+    atom_size = int.from_bytes(data,"big") # convert 32 bits to integer
+    atom_type = f.read(4)                   # read bytes 4..7
+
+    if (1 == atom_size):
+        # using extended size field
+        if (pos + 8 > end_pos):
+            # not enough remaining bytes for a 64-bit atom size field
+            return None
+
+        print("using extended atom size")
+        data = f.read(8)
+        atom_size = int.from_bytes(data,"big") # convert 64 bits to integer
+    
+    # todo: handle special size cases, atom_size == 0
+    print("process_next_atom() data = ", data,
+          "atom_size = ", atom_size,
+          "atom_type = ", atom_type)
+
+    assert (atom_size >= 8)
 
     body_end = pos + atom_size
 
@@ -108,22 +137,7 @@ def process_next_atom(f, end_pos):
         # not enough remaining bytes for the atom body
         return None
     
-    atom_body = None
-
-    if (atom_type == b'wide'):
-        atom_body = process_wide(f, body_end)
-    elif (atom_type == b'skip'):
-        atom_body = process_wide(f, body_end)
-    elif (atom_type == b'free'):
-        atom_body = process_wide(f, body_end)
-    elif (atom_type == b'ftyp'):
-        atom_body = process_ftyp(f, body_end)
-    elif (atom_type == b'mdat'):
-        atom_body = process_mdat(f, body_end)
-    elif (atom_type == b'moov'):
-        atom_body = process_moov(f, body_end)
-    else:
-        print('Unrecognised atom type', atom_type)
+    atom_body = type_mapping[atom_type](f, body_end)
 
     return [atom_type, atom_size, atom_body]
     

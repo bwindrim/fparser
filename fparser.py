@@ -91,6 +91,13 @@ def process_free(f, body_end):
     f.seek(body_end, 0) # skip to the atom_size (wrt. file head)
 
 
+def process_unknown(f, body_end):
+    "process the body of an unknown atom"
+    print("unknown atom, seeking to ", body_end)
+    f.seek(body_end, 0) # skip to the atom_size (wrt. file head)
+
+
+# Mapping dict from atom type code to handler function
 type_mapping = {
     b'wide':process_wide,
     b'skip':process_skip,
@@ -99,6 +106,7 @@ type_mapping = {
     b'mdat':process_mdat,
     b'moov':process_moov
     }
+
 
 def process_next_atom(f, end_pos):
     "read the next atom from file f and process it"
@@ -136,8 +144,9 @@ def process_next_atom(f, end_pos):
     if (body_end > end_pos):
         # not enough remaining bytes for the atom body
         return None
-    
-    atom_body = type_mapping[atom_type](f, body_end)
+
+    atom_handler = type_mapping.get(atom_type, process_unknown)
+    atom_body = atom_handler(f, body_end)
 
     return [atom_type, atom_size, atom_body]
     
